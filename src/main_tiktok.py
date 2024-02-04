@@ -7,6 +7,7 @@ import pickle
 import parse_yuque_config
 import sender.email_sender as email_sender
 import pandas as pd
+from models.AccountInfo import AccountInfo
 
 
 def send_report(subject: str, body: str, file_path: str):
@@ -47,15 +48,15 @@ def write_to_excel(data: list, file_path: str):
             os.remove(file_path)
         tmp_list = []
         for item in data:
-            tmp_list.append([item.number, item.operater, item.uid, item.deviceId, item.video_change, "", item.fans_change,
-                            item.fans_count, item.follow_count,
-                            item.like_count, item.video_count, 
-                            item.follow_change, item.like_change,  item.remarks])
+            if item.is_valid == False:
+                tmp_list.append([item.number, item.operater, item.uid, item.deviceId,
+                                "-", "-", "-", "-", "-", "-", "-", "-", "-", 'uid配置错误，信息获取失败'])
+            else:
+                tmp_list.append([item.number, item.operater, item.uid, item.deviceId, item.video_change, "-", item.fans_change, item.fans_count,
+                                item.follow_count, item.like_count, item.video_count, item.follow_change, item.like_change,  item.remarks])
         df = pd.DataFrame(tmp_list)
-        df.columns = ['序号', '名字', '账号名', '机号', '今日视频量', '今日浏览量', '今日增粉量', 
-                      '粉丝数', '关注数', 
-                      '点赞数', '视频数', 
-                      '今日关注变化', '今日点赞变化',  '备注']
+        df.columns = ['序号', '名字', '账号名', '机号', '今日视频量', '今日浏览量',
+                      '今日增粉量', '粉丝数', '关注数', '点赞数', '视频数', '今日关注变化', '今日点赞变化',  '备注']
         df = df.sort_values(by='序号', ascending=True)
         df.to_excel(file_path, index=False)
     except Exception as err:
@@ -77,8 +78,7 @@ if __name__ == "__main__":
             print("获取语雀配置失败")
             send_report("TikTok日报 - 运行异常", "读取语雀配置错误，请检查配置", None)
             raise err
-        current_date = datetime.now().strftime("%Y%m%d")
-        doc_uid = "Tiktok日报_{}".format(current_date)
+        doc_uid = yuque_doc_url.split('/')[-1]
         daily_data_file = os.path.abspath(f'{doc_uid}.pkl')
         data = None
         if os.path.exists(daily_data_file):
@@ -92,10 +92,10 @@ if __name__ == "__main__":
         for item in accounts:
             info = tiktok_utils.get_account_info(item, tiktok_cookie)
             if info == None:
-                print("获取用户信息失败")
-                result += f'\n用户信息丢失:{item.uid}({item.operater} - {item.number})'
+                info = AccountInfo(item, None, 0, 0, 0, 0)
+                info.set_invalid()
+                print("用户uid配置错误，获取用户信息失败")
             else:
-                users.append(info)
                 yesterday = None
                 try:
                     if data is not None:
@@ -110,12 +110,15 @@ if __name__ == "__main__":
                 if yesterday != None:
                     info.set_yesterday(int(yesterday.follow_count), int(yesterday.fans_count),
                                        int(yesterday.like_count), int(yesterday.video_count))
-                result += info.toString()
+            result += info.toString()
+            users.append(info)
 
         # 保存文件
         with open(daily_data_file, 'wb') as file:
             pickle.dump(users, file)
-        tmp_excel = f'{doc_uid}.xlsx'
+
+        current_date = datetime.now().strftime("%Y%m%d")
+        tmp_excel = f'TikTok_{current_date}.xlsx'
         write_to_excel(users, tmp_excel)
         send_report("TikTok日报", result, tmp_excel)
 
