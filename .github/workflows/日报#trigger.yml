@@ -1,5 +1,3 @@
-name: 日报 - 手动触发
-
 on:
   workflow_dispatch:
 
