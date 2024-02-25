@@ -95,8 +95,6 @@ if __name__ == "__main__":
     try:
         # 读取项目配置
         tiktok_cookie = config.user_config['tiktok_cookie']
-        # 读取环境变量配置
-        yuque_doc_url = os.environ['YUQUE_DOC_URL']
 
         args = sys.argv[1:]  # 排除脚本名称
         yml_name = args[0]
